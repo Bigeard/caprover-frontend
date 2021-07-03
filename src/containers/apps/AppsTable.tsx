@@ -1,21 +1,24 @@
 import {
     CheckOutlined,
+    CloseOutlined,
     CodeOutlined,
     DisconnectOutlined,
     LinkOutlined,
     LoadingOutlined,
 } from '@ant-design/icons'
-import { Card, Col, Input, Row, Table, Tooltip } from 'antd'
+import { Card, Col, Input, Row, Table, Tag, Tooltip } from 'antd'
 import { ColumnProps } from 'antd/lib/table'
+import { ColumnFilterItem } from 'antd/lib/table/interface'
 import { History } from 'history'
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { IMobileComponent } from '../../models/ContainerProps'
 import Logger from '../../utils/Logger'
+import Utils from '../../utils/Utils'
 import NewTabLink from '../global/NewTabLink'
 import Timestamp from '../global/Timestamp'
-import { IAppDef } from './AppDefinition'
+import { IAppDef, IAppTag } from './AppDefinition'
 
 type TableData = IAppDef & { lastDeployTime: string }
 
@@ -27,11 +30,25 @@ class AppsTable extends Component<
         defaultNginxConfig: string
         isMobile: boolean
     },
-    { searchTerm: string }
+    { searchTerm: string; tagsFilters: ColumnFilterItem[] }
 > {
     constructor(props: any) {
         super(props)
-        this.state = { searchTerm: '' }
+
+        // Init Tags filters
+        let tags: IAppTag[] = []
+        props.apps.map(
+            (a: IAppDef) =>
+                (tags = Utils.mergeArrayObjectsUnique(tags, a.tags, 'name'))
+        )
+
+        this.state = {
+            searchTerm: '',
+            tagsFilters: tags.map((t: IAppTag) => ({
+                text: t.name,
+                value: t.name,
+            })),
+        }
     }
 
     appDetailPath(appName: string) {
@@ -109,6 +126,32 @@ class AppsTable extends Component<
                             ) : undefined}
                         </span>
                     )
+                },
+            },
+            {
+                title: 'Tags',
+                dataIndex: 'tags',
+                key: 'tags',
+                align: ALIGN,
+                filters: this.state.tagsFilters,
+                onFilter: (a, b) =>
+                    b.tags.filter((t) => t.name === a).length > 0
+                        ? true
+                        : false,
+                render: (tags: any[]) => {
+                    if (tags.length === 0) {
+                        return (
+                            <Tooltip title="No tag">
+                                <CloseOutlined />
+                            </Tooltip>
+                        )
+                    }
+
+                    return tags.map((t) => (
+                        <Tag color={t.color} key={t.name.toLowerCase()}>
+                            {t.name}
+                        </Tag>
+                    ))
                 },
             },
             {
@@ -215,6 +258,7 @@ class AppsTable extends Component<
                                         hasPersistentData,
                                         notExposeAsWebApp,
                                         instanceCount,
+                                        tags,
                                         hasDefaultSubDomainSsl,
                                     }) => (
                                         <Card
@@ -253,6 +297,17 @@ class AppsTable extends Component<
                                             </p>
                                             <p>
                                                 Instance Count: {instanceCount}
+                                            </p>
+                                            <p>
+                                                Tags:{' '}
+                                                {tags.map((t) => (
+                                                    <Tag
+                                                        color={t.color}
+                                                        key={t.name.toLowerCase()}
+                                                    >
+                                                        {t.name}
+                                                    </Tag>
+                                                ))}
                                             </p>
                                             <p>
                                                 Open in Browser:{' '}
