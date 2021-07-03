@@ -4,6 +4,7 @@ import {
     EditOutlined,
     ReadOutlined,
     SaveOutlined,
+    TagsOutlined,
 } from '@ant-design/icons'
 import {
     Affix,
@@ -17,7 +18,9 @@ import {
     Modal,
     Popover,
     Row,
+    Select,
     Tabs,
+    Tag,
     Tooltip,
 } from 'antd'
 import classnames from 'classnames'
@@ -34,7 +37,7 @@ import CenteredSpinner from '../../global/CenteredSpinner'
 import ClickableLink from '../../global/ClickableLink'
 import ErrorRetry from '../../global/ErrorRetry'
 import NewTabLink from '../../global/NewTabLink'
-import { IAppDef } from '../AppDefinition'
+import { IAppDef, IAppTag } from '../AppDefinition'
 import AppConfigs from './AppConfigs'
 import Deployment from './deploy/Deployment'
 import HttpSettings from './HttpSettings'
@@ -72,6 +75,7 @@ class AppDetails extends ApiComponent<
         apiData: SingleAppApiData | undefined
         activeTabKey: string
         renderCounterForAffixBug: number
+        tags: IAppTag[]
     }
 > {
     private reRenderTriggered = false
@@ -86,6 +90,7 @@ class AppDetails extends ApiComponent<
             isLoading: true,
             renderCounterForAffixBug: 0,
             apiData: undefined,
+            tags: [],
         }
     }
 
@@ -145,6 +150,51 @@ class AppDetails extends ApiComponent<
             onOk() {
                 const changed = app.description !== tempVal.tempDescription
                 app.description = tempVal.tempDescription
+                if (changed) self.onUpdateConfigAndSave()
+            },
+        })
+    }
+
+    viewTags() {
+        const self = this
+        const app = self.state.apiData!.appDefinition
+        const tempVal = { tempTags: app.tags }
+        const { Option } = Select
+        const children = []
+        if (this.state.tags.length < 0) {
+            children.push(null)
+        }
+        this.state.tags.forEach((t) => {
+            children.push(
+                <Option key={t.name} value={t.name}>
+                    {t.name}
+                </Option>
+            )
+        })
+        Modal.confirm({
+            title: 'App Tags:',
+            content: (
+                <div>
+                    <Select
+                        mode="tags"
+                        allowClear
+                        style={{ width: '100%' }}
+                        placeholder="Select or create tags"
+                        defaultValue={app.tags.map((t) => t.name)}
+                        onChange={(tags) => {
+                            tempVal.tempTags = tags.map((t) => ({
+                                name: t,
+                                color: 'default',
+                            }))
+                        }}
+                    >
+                        {children}
+                    </Select>
+                </div>
+            ),
+            onOk() {
+                const changed = app.tags !== tempVal.tempTags
+                app.tags = tempVal.tempTags
                 if (changed) self.onUpdateConfigAndSave()
             },
         })
@@ -386,6 +436,36 @@ class AppDetails extends ApiComponent<
                                         <ReadOutlined />
                                     </Popover>
                                 </ClickableLink>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                <ClickableLink
+                                    onLinkClicked={() => self.viewTags()}
+                                >
+                                    <Popover
+                                        placement="bottom"
+                                        content={
+                                            <div
+                                                style={{
+                                                    maxWidth: 300,
+                                                    whiteSpace: 'pre-line',
+                                                }}
+                                            >
+                                                {app.tags.length === 0
+                                                    ? 'Click to edit app tags...'
+                                                    : app.tags.map((t) => (
+                                                          <Tag
+                                                              color={t.color}
+                                                              key={t.name.toLowerCase()}
+                                                          >
+                                                              {t.name}
+                                                          </Tag>
+                                                      ))}
+                                            </div>
+                                        }
+                                        title="App tags"
+                                    >
+                                        <TagsOutlined />
+                                    </Popover>
+                                </ClickableLink>
                             </span>
                         }
                     >
@@ -567,6 +647,8 @@ class AppDetails extends ApiComponent<
 
     reFetchData() {
         const self = this
+        let tags: IAppTag[] = []
+        let element: IAppDef
         self.setState({ isLoading: true })
         return this.apiManager
             .getAllApps()
@@ -576,22 +658,29 @@ class AppDetails extends ApiComponent<
                     index < data.appDefinitions.length;
                     index++
                 ) {
-                    const element = data.appDefinitions[index]
-                    if (element.appName === self.props.match.params.appName) {
-                        self.setState({
-                            isLoading: false,
-                            apiData: {
-                                appDefinition: element,
-                                rootDomain: data.rootDomain,
-                                defaultNginxConfig: data.defaultNginxConfig,
-                            },
-                        })
-                        return
+                    const appDef = data.appDefinitions[index]
+                    tags = Utils.mergeArrayObjectsUnique(
+                        tags,
+                        appDef.tags,
+                        'name'
+                    )
+                    if (appDef.appName === self.props.match.params.appName) {
+                        element = appDef
                     }
                 }
-
-                // App Not Found!
-                self.goBackToApps()
+                if (!element) {
+                    // App Not Found!
+                    self.goBackToApps()
+                }
+                self.setState({
+                    isLoading: false,
+                    tags: tags,
+                    apiData: {
+                        appDefinition: element,
+                        rootDomain: data.rootDomain,
+                        defaultNginxConfig: data.defaultNginxConfig,
+                    },
+                })
             })
             .catch(Toaster.createCatcher())
             .then(function () {

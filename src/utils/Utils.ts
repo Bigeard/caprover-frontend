@@ -134,4 +134,12 @@ export default {
 
         return newObject
     },
+
+    mergeArrayObjectsUnique(array1: any[], array2: any[], prop: string) {
+        var reduced = array1.filter(
+            (object1) =>
+                !array2.find((object2) => object1[prop] === object2[prop])
+        )
+        return reduced.concat(array2)
+    },
 }
