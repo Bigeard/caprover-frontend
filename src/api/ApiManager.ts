@@ -201,6 +201,7 @@ export default class ApiManager {
         let serviceUpdateOverride = appDefinition.serviceUpdateOverride
         let containerHttpPort = appDefinition.containerHttpPort
         let description = appDefinition.description
+        let tags = appDefinition.tags
         let httpAuth = appDefinition.httpAuth
         const http = this.http
 
@@ -222,6 +223,7 @@ export default class ApiManager {
                     serviceUpdateOverride: serviceUpdateOverride,
                     containerHttpPort: containerHttpPort,
                     description: description,
+                    tags: tags,
                     httpAuth: httpAuth,
                     envVars: envVars,
                 })

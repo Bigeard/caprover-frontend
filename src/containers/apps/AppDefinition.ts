@@ -52,6 +52,11 @@ interface IAppCustomDomain {
     hasSsl: boolean
 }
 
+export interface IAppTag {
+    name: string
+    color: string
+}
+
 interface IAppDefinitionBase {
     description?: string
     deployedVersion: number
@@ -90,6 +95,7 @@ export interface IAppDef extends IAppDefinitionBase {
         pushWebhookToken?: string // On FrontEnd, these values are null, until they are assigned.
     }
     appName?: string
+    tags: IAppTag[]
     isAppBuilding?: boolean
 }
 
