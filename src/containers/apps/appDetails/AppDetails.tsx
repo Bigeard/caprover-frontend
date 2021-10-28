@@ -46,6 +46,7 @@ const TabPane = Tabs.TabPane
 const WEB_SETTINGS = 'WEB_SETTINGS'
 const APP_CONFIGS = 'APP_CONFIGS'
 const DEPLOYMENT = 'DEPLOYMENT'
+const { Option } = Select
 
 export interface SingleAppApiData {
     appDefinition: IAppDef
@@ -75,7 +76,9 @@ class AppDetails extends ApiComponent<
         apiData: SingleAppApiData | undefined
         activeTabKey: string
         renderCounterForAffixBug: number
-        tags: IAppTag[]
+        allTags: IAppTag[]
+        tempTags: IAppTag[]
+        activeViewTags: boolean
     }
 > {
     private reRenderTriggered = false
@@ -84,13 +87,14 @@ class AppDetails extends ApiComponent<
 
     constructor(props: any) {
         super(props)
-
         this.state = {
             activeTabKey: WEB_SETTINGS,
             isLoading: true,
             renderCounterForAffixBug: 0,
             apiData: undefined,
-            tags: [],
+            allTags: [],
+            tempTags: [],
+            activeViewTags: false,
         }
     }
 
@@ -155,49 +159,88 @@ class AppDetails extends ApiComponent<
         })
     }
 
-    viewTags() {
+    viewTags(app: IAppDef) {
         const self = this
-        const app = self.state.apiData!.appDefinition
-        const tempVal = { tempTags: app.tags }
-        const { Option } = Select
-        const children = []
-        if (this.state.tags.length < 0) {
-            children.push(null)
-        }
-        this.state.tags.forEach((t) => {
-            children.push(
-                <Option key={t.name} value={t.name}>
-                    {t.name}
-                </Option>
-            )
-        })
-        Modal.confirm({
-            title: 'App Tags:',
-            content: (
+        return (
+            <Modal
+                title="App Tags:"
+                visible={this.state.activeViewTags}
+                onCancel={() =>
+                    self.setState({
+                        activeViewTags: false,
+                        tempTags: app.tags,
+                    })
+                }
+                onOk={() => {
+                    app.tags = self.state.tempTags
+                    self.onUpdateConfigAndSave()
+                    self.setState({ activeViewTags: false })
+                }}
+            >
                 <div>
                     <Select
+                        key={'ddd'}
                         mode="tags"
                         allowClear
                         style={{ width: '100%' }}
                         placeholder="Select or create tags"
-                        defaultValue={app.tags.map((t) => t.name)}
+                        value={self.state.tempTags.map((t) => t.name)}
                         onChange={(tags) => {
-                            tempVal.tempTags = tags.map((t) => ({
-                                name: t,
-                                color: 'default',
-                            }))
+                            self.setState({
+                                tempTags: tags.map((t, i) => {
+                                    const existTag = self.state.allTags.find(
+                                        (at) => at.name === t
+                                    )
+                                    if (existTag) {
+                                        return existTag
+                                    } else if (
+                                        !self.state.tempTags[i] ||
+                                        t !== self.state.tempTags[i].name
+                                    ) {
+                                        return {
+                                            name: t,
+                                            color: 'default',
+                                        }
+                                    }
+                                    return self.state.tempTags[i]
+                                }),
+                            })
                         }}
                     >
-                        {children}
+                        {self.state.allTags.map((t) => (
+                            <Option key={t.name} value={t.name}>
+                                {t.name}
+                            </Option>
+                        ))}
                     </Select>
+                    <br />
+                    <br />
+                    <div>
+                        <p>Click to change color of the tag:</p>
+                        {self.state.tempTags.map((t, i) => (
+                            <label key={t.name}>
+                                <Tag color={t.color}>{t.name}</Tag>
+                                <input
+                                    type="color"
+                                    style={{
+                                        visibility: 'hidden',
+                                        width: 0,
+                                        padding: 0,
+                                    }}
+                                    onChange={(e) => {
+                                        self.state.tempTags[i].color =
+                                            e.target.value
+                                        this.setState({
+                                            tempTags: self.state.tempTags,
+                                        })
+                                    }}
+                                />
+                            </label>
+                        ))}
+                    </div>
                 </div>
-            ),
-            onOk() {
-                const changed = app.tags !== tempVal.tempTags
-                app.tags = tempVal.tempTags
-                if (changed) self.onUpdateConfigAndSave()
-            },
-        })
+            </Modal>
+        )
     }
 
     onDeleteAppClicked() {
@@ -438,7 +481,12 @@ class AppDetails extends ApiComponent<
                                 </ClickableLink>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <ClickableLink
-                                    onLinkClicked={() => self.viewTags()}
+                                    onLinkClicked={() =>
+                                        self.setState({
+                                            activeViewTags: true,
+                                            tempTags: app.tags,
+                                        })
+                                    }
                                 >
                                     <Popover
                                         placement="bottom"
@@ -454,7 +502,7 @@ class AppDetails extends ApiComponent<
                                                     : app.tags.map((t) => (
                                                           <Tag
                                                               color={t.color}
-                                                              key={t.name.toLowerCase()}
+                                                              key={t.name}
                                                           >
                                                               {t.name}
                                                           </Tag>
@@ -466,6 +514,7 @@ class AppDetails extends ApiComponent<
                                         <TagsOutlined />
                                     </Popover>
                                 </ClickableLink>
+                                {self.viewTags(app)}
                             </span>
                         }
                     >
@@ -647,7 +696,7 @@ class AppDetails extends ApiComponent<
 
     reFetchData() {
         const self = this
-        let tags: IAppTag[] = []
+        let allTags: IAppTag[] = []
         let element: IAppDef
         self.setState({ isLoading: true })
         return this.apiManager
@@ -659,8 +708,8 @@ class AppDetails extends ApiComponent<
                     index++
                 ) {
                     const appDef = data.appDefinitions[index]
-                    tags = Utils.mergeArrayObjectsUnique(
-                        tags,
+                    allTags = Utils.mergeArrayObjectsUnique(
+                        allTags,
                         appDef.tags,
                         'name'
                     )
@@ -674,7 +723,7 @@ class AppDetails extends ApiComponent<
                 }
                 self.setState({
                     isLoading: false,
-                    tags: tags,
+                    allTags: allTags,
                     apiData: {
                         appDefinition: element,
                         rootDomain: data.rootDomain,

@@ -148,7 +148,7 @@ class AppsTable extends Component<
                     }
 
                     return tags.map((t) => (
-                        <Tag color={t.color} key={t.name.toLowerCase()}>
+                        <Tag color={t.color} key={t.name}>
                             {t.name}
                         </Tag>
                     ))
@@ -303,7 +303,7 @@ class AppsTable extends Component<
                                                 {tags.map((t) => (
                                                     <Tag
                                                         color={t.color}
-                                                        key={t.name.toLowerCase()}
+                                                        key={t.name}
                                                     >
                                                         {t.name}
                                                     </Tag>
